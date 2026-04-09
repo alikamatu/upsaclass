@@ -1,0 +1,32 @@
+import mongoose from "mongoose";
+
+const AllocationSchema = new mongoose.Schema(
+  {
+    slot: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "TimetableSlot",
+      required: true,
+    },
+    hall: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "LectureHall",
+      required: true,
+    },
+    isActive: {
+      type: Boolean,
+      default: true,
+    },
+    effectiveFrom: {
+      type: Date,
+      default: Date.now,
+    },
+    effectiveUntil: {
+      type: Date,
+      default: null,
+    },
+  },
+  { timestamps: true }
+);
+
+export default mongoose.models.Allocation ||
+  mongoose.model("Allocation", AllocationSchema);

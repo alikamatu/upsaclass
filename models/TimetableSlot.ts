@@ -7,8 +7,9 @@ const TimetableSlotSchema = new mongoose.Schema(
       ref: "Course",
       required: true,
     },
-    lecturerName: {
-      type: String,
+    lecturer: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Lecturer",
       required: true,
     },
     day: {

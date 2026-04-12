@@ -1,23 +1,24 @@
 "use client";
-import { motion } from "framer-motion";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { motion, type HTMLMotionProps } from "framer-motion";
+import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { VariantProps } from "class-variance-authority";
 
 interface AnimatedButtonProps
-  extends React.ComponentProps<"button">,
-    VariantProps<typeof buttonVariants> {
+  extends HTMLMotionProps<"button">,
+  VariantProps<typeof buttonVariants> {
   children: React.ReactNode;
-  asChild?: boolean;
 }
 
-export function AnimatedButton({ children, className, ...props }: AnimatedButtonProps) {
+export function AnimatedButton({ children, className, variant = "default", size = "default", ...props }: AnimatedButtonProps) {
   return (
-    <motion.div
+    <motion.button
       whileTap={{ scale: 0.97 }}
       whileHover={{ scale: 1.01 }}
-      className={className}
+      className={cn(buttonVariants({ variant, size, className }))}
+      {...props}
     >
-      <Button {...props}>{children}</Button>
-    </motion.div>
+      {children}
+    </motion.button>
   );
 }

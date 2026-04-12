@@ -8,8 +8,9 @@ import Notification from "@/models/Notification";
 import TimetableSlot from "@/models/TimetableSlot";
 import User from "@/models/User";
 
-export async function PUT(req: Request, { params }: { params: { id: string } }) {
+export async function PUT(req: Request, context: { params: Promise<{ id: string }> | { id: string } }) {
   try {
+    const params = await context.params;
     const session = await getServerSession(authOptions);
     if (!session || (session.user as any).role !== "admin") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });

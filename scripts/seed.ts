@@ -67,9 +67,9 @@ async function seed() {
 
   // 2. Courses
   const courses = await Course.insertMany([
-    { courseCode: "CSC301", courseName: "Web Development", department: "Computer Science", creditHours: 3, enrollmentCount: 85 },
-    { courseCode: "CSC305", courseName: "Databases", department: "Computer Science", creditHours: 3, enrollmentCount: 85 },
-    { courseCode: "MGT201", courseName: "Principles of Management", department: "Business", creditHours: 3, enrollmentCount: 150 },
+    { courseCode: "CSC301", courseName: "Web Development", department: "Computer Science", level: 300, creditHours: 3, enrollmentCount: 85 },
+    { courseCode: "CSC305", courseName: "Databases", department: "Computer Science", level: 300, creditHours: 3, enrollmentCount: 85 },
+    { courseCode: "MGT201", courseName: "Principles of Management", department: "Business", level: 200, creditHours: 3, enrollmentCount: 150 },
   ]);
 
   // 3. Timetable Slots

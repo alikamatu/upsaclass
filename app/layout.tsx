@@ -13,6 +13,8 @@ export const metadata: Metadata = {
 };
 
 import { AuthProvider } from "@/components/providers/session-provider";
+import { ThemeProvider } from "@/components/providers/theme-provider";
+import { UIProvider } from "@/context/UIContext";
 import { Toaster } from "@/components/ui/sonner";
 
 export default function RootLayout({
@@ -21,12 +23,21 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${inter.variable} h-full antialiased`}>
+    <html lang="en" className={`${inter.variable} h-full antialiased`} suppressHydrationWarning>
       <body className="min-h-full flex flex-col font-sans">
-        <AuthProvider>
-          {children}
-          <Toaster position="top-right" expand={false} richColors />
-        </AuthProvider>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="light"
+          enableSystem
+          disableTransitionOnChange
+        >
+          <AuthProvider>
+            <UIProvider>
+              {children}
+              <Toaster position="top-right" expand={false} richColors />
+            </UIProvider>
+          </AuthProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

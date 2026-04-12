@@ -15,6 +15,11 @@ const CourseSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    level: {
+      type: Number,
+      required: true,
+      default: 100,
+    },
     creditHours: {
       type: Number,
       required: true,
@@ -22,6 +27,10 @@ const CourseSchema = new mongoose.Schema(
     enrollmentCount: {
       type: Number,
       required: true,
+    },
+    assignedLecturer: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Lecturer",
     },
   },
   { timestamps: true }

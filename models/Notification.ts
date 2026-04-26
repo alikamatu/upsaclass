@@ -1,4 +1,6 @@
 import mongoose from "mongoose";
+import "./User";
+import "./ReassignmentRequest";
 
 const NotificationSchema = new mongoose.Schema(
   {
@@ -10,6 +12,15 @@ const NotificationSchema = new mongoose.Schema(
     message: {
       type: String,
       required: true,
+    },
+    title: {
+      type: String,
+      default: "Notification",
+    },
+    type: {
+      type: String,
+      enum: ["info", "success", "warning", "error", "alert"],
+      default: "info",
     },
     isRead: {
       type: Boolean,

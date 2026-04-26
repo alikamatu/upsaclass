@@ -14,20 +14,25 @@ export async function GET(req: Request) {
     }
 
     const { searchParams } = new URL(req.url);
-    const day = searchParams.get("day");
+    const dateStr = searchParams.get("date"); // YYYY-MM-DD
     const startTime = searchParams.get("startTime");
     const endTime = searchParams.get("endTime");
 
-    if (!day || !startTime || !endTime) {
+    if (!dateStr || !startTime || !endTime) {
       return NextResponse.json({ error: "Missing parameters" }, { status: 400 });
     }
 
     await dbConnect();
 
+    // Determine the day from the date
+    const dateObj = new Date(dateStr);
+    const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    const day = days[dateObj.getDay()];
+
     // 1. Get all halls
     const allHalls = await LectureHall.find({}).lean();
     
-    // 2. Find any slots happening at this time to see which halls are booked by default
+    // 2. Find any slots happening on this day of the week that overlap
     const conflictingSlots = await TimetableSlot.find({
       day,
       $or: [
@@ -37,39 +42,55 @@ export async function GET(req: Request) {
       ]
     }).lean();
 
-    const conflictingSlotIds = conflictingSlots.map((s: any) => s._id);
-
-    // 3. Get active overrides to see if any halls were freed or taken
-    const overrides = await Allocation.find({ isActive: true }).lean();
-    
-    // A hall is occupied if:
-    // It's the default hall for a conflicting slot AND there's no override for that slot
-    // OR it's the overridden hall for ANY conflicting slot
+    // 3. Get active overrides for this specific date OR permanent overrides
+    // Permanent overrides are those where specificDate is null or matches dateStr
+    const overrides = await Allocation.find({ 
+      isActive: true,
+      $or: [
+        { specificDate: dateStr },
+        { specificDate: null }
+      ]
+    }).lean();
     
     const occupiedHallIds = new Set<string>();
 
+    // Check default halls and overrides for conflicting slots
     for (const slot of conflictingSlots) {
-      const overrideForSlot = overrides.find((o: any) => o.slot.toString() === slot._id.toString());
+      // Find override for this specific slot on this date
+      const overrideForSlot = overrides.find((o: any) => 
+        o.slot.toString() === slot._id.toString() && 
+        (o.specificDate === dateStr || o.specificDate === null)
+      );
+
       if (overrideForSlot) {
-        // The override hall is taken
+        // This slot has been moved TO a new hall
         if (overrideForSlot.hall) {
           occupiedHallIds.add(overrideForSlot.hall.toString());
         }
+        // Note: The defaultHall of this slot is now FREE (handled by not adding it)
       } else {
-        // The default hall is taken
+        // No override, default hall is taken
         if (slot.defaultHall) {
           occupiedHallIds.add(slot.defaultHall.toString());
         }
       }
     }
 
-    // Identify intersecting active overrides from other slots at the same time? 
-    // Wait, the logic above covers overrides for conflicting slots. But what if a non-conflicting slot was overridden to happen at this time?
-    // In our simplified model, overrides don't change the TIME, only the HALL. So we only check conflicting slots.
+    // 4. Check for any overrides for OTHER slots that moved INTO a hall at this time
+    // This is already covered by the loop above if those slots were on the same day.
+    // What if a slot from a DIFFERENT day was moved into THIS date?
+    // Our UI usually keeps the day consistent, but to be safe:
+    for (const override of overrides) {
+      const slot = await TimetableSlot.findById(override.slot);
+      if (slot && slot.day !== day) {
+        // This check would be for arbitrary rescheduling across days
+        // For now, assume rescheduling stays within the same slot time/day but changes hall
+      }
+    }
 
     const availableHalls = allHalls.filter((hall: any) => !occupiedHallIds.has(hall._id.toString()));
 
-    return NextResponse.json({ availableHalls });
+    return NextResponse.json({ success: true, data: availableHalls });
   } catch (error) {
     console.error("Availability error:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });

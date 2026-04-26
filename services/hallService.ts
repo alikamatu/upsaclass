@@ -2,7 +2,8 @@ import { apiClient } from "./api-client";
 import { LectureHall } from "@/types";
 
 export const hallService = {
-  getAll: () => apiClient.get<LectureHall[]>("/admin/halls"),
+  getAll: () => apiClient.get<{ success: boolean; data: LectureHall[] }>("/admin/halls")
+    .then(res => res.data || []),
   
   getAvailable: (date?: string, startTime?: string, endTime?: string) => {
     const params = new URLSearchParams();
@@ -12,9 +13,11 @@ export const hallService = {
     return apiClient.get<LectureHall[]>(`/halls/available?${params.toString()}`);
   },
   
-  create: (data: Partial<LectureHall>) => apiClient.post<LectureHall>("/admin/halls", data),
+  create: (data: Partial<LectureHall>) => apiClient.post<{ success: boolean; data: LectureHall }>("/admin/halls", data)
+    .then(res => res.data),
   
-  update: (id: string, data: Partial<LectureHall>) => apiClient.put<LectureHall>(`/admin/halls/${id}`, data),
+  update: (id: string, data: Partial<LectureHall>) => apiClient.put<{ success: boolean; data: LectureHall }>(`/admin/halls/${id}`, data)
+    .then(res => res.data),
   
-  delete: (id: string) => apiClient.delete(`/admin/halls/${id}`),
+  delete: (id: string) => apiClient.delete<{ success: boolean }>(`/admin/halls/${id}`),
 };

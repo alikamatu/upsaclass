@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { course, lecturer, day, startTime, endTime, defaultHall, semester } = body;
+    const { course, lecturer, day, startTime, endTime, defaultHall, semester, classGroup } = body;
 
     // Validate required fields
     if (!course || !lecturer || !day || !startTime || !endTime || !defaultHall || !semester) {
@@ -108,6 +108,7 @@ export async function POST(req: NextRequest) {
       endTime,
       defaultHall,
       semester,
+      classGroup: classGroup || "",
     });
 
     await newSlot.save();

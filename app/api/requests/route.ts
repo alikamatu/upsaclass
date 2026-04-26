@@ -5,6 +5,9 @@ import dbConnect from "@/lib/db";
 import ReassignmentRequest from "@/models/ReassignmentRequest";
 import TimetableSlot from "@/models/TimetableSlot";
 import User from "@/models/User";
+import Course from "@/models/Course"; // Ensure Course is registered
+import LectureHall from "@/models/LectureHall"; // Ensure LectureHall is registered
+import Notification from "@/models/Notification";
 
 export async function GET(req: Request) {
   try {
@@ -23,11 +26,15 @@ export async function GET(req: Request) {
     const requests = await ReassignmentRequest.find(filter)
       .populate({
         path: "slot",
-        populate: { path: "course", select: "courseCode courseName" }
+        populate: [
+          { path: "course", select: "courseCode courseName enrollmentCount" },
+          { path: "lecturer", select: "fullName staffId" },
+          { path: "defaultHall", select: "name hallCode capacity building" }
+        ]
       })
-      .populate("requestedBy", "fullName studentId")
-      .populate("preferredHall", "name hallCode")
-      .populate("approvedNewHall", "name hallCode")
+      .populate("requestedBy", "fullName studentId role")
+      .populate("preferredHall", "name hallCode capacity building")
+      .populate("approvedNewHall", "name hallCode capacity building")
       .sort({ createdAt: -1 })
       .lean();
 
@@ -46,7 +53,7 @@ export async function POST(req: Request) {
     }
 
     const data = await req.json();
-    const { slotId, preferredHallId, reason } = data;
+    const { slotId, preferredHallId, reason, requestedDate } = data;
 
     if (!slotId || !reason) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
@@ -63,8 +70,32 @@ export async function POST(req: Request) {
       slot: slotId,
       preferredHall: preferredHallId || null,
       reason,
+      requestedDate: requestedDate || null,
       status: "pending"
     });
+
+    const course = await Course.findById(slot.course).select("courseCode courseName");
+    const courseLabel = course ? `${course.courseCode} - ${course.courseName}` : "your selected course";
+
+    await Notification.create({
+      user: (session.user as any).id,
+      title: "Request Submitted",
+      message: `Your reassignment request for ${courseLabel} has been submitted and is pending review.`,
+      type: "info",
+      relatedRequest: newRequest._id,
+    });
+
+    const admins = await User.find({ role: "admin" }).select("_id");
+    if (admins.length > 0) {
+      const adminNotifications = admins.map((admin) => ({
+        user: admin._id,
+        title: "New Reassignment Request",
+        message: `A new reassignment request for ${courseLabel} has been submitted by ${session.user?.name || "a representative"}.`,
+        type: "info",
+        relatedRequest: newRequest._id,
+      }));
+      await Notification.insertMany(adminNotifications);
+    }
 
     return NextResponse.json({ message: "Request created", request: newRequest }, { status: 201 });
   } catch (error) {

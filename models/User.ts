@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import "./Course";
 
 const UserSchema = new mongoose.Schema(
   {
@@ -20,11 +21,12 @@ const UserSchema = new mongoose.Schema(
       enum: ["student", "rep", "admin"],
       default: "student",
     },
-    courseRepFor: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Course",
-      default: null,
-    },
+    courseRepFor: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Course",
+      },
+    ],
     enrolledCourses: [
       {
         type: mongoose.Schema.Types.ObjectId,

@@ -38,6 +38,7 @@ export const authOptions: NextAuthOptions = {
           name: user.fullName,
           email: user.studentId, // We use studentId as the unique identifier
           role: user.role,
+          courseRepFor: user.courseRepFor?.map((c: any) => c.toString()) || [],
         };
       },
     }),
@@ -47,6 +48,7 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         token.id = user.id;
         token.role = (user as any).role;
+        token.courseRepFor = (user as any).courseRepFor;
       }
       return token;
     },
@@ -54,6 +56,7 @@ export const authOptions: NextAuthOptions = {
       if (session.user) {
         (session.user as any).id = token.id;
         (session.user as any).role = token.role;
+        (session.user as any).courseRepFor = token.courseRepFor;
       }
       return session;
     },

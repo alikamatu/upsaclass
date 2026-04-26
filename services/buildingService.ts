@@ -2,11 +2,14 @@ import { apiClient } from "./api-client";
 import { Building } from "@/types";
 
 export const buildingService = {
-  getAll: () => apiClient.get<Building[]>("/admin/buildings"),
+  getAll: () => apiClient.get<{ success: boolean; data: Building[] }>("/admin/buildings")
+    .then(res => res.data || []),
   
-  create: (data: Partial<Building>) => apiClient.post<Building>("/admin/buildings", data),
+  create: (data: Partial<Building>) => apiClient.post<{ success: boolean; data: Building }>("/admin/buildings", data)
+    .then(res => res.data),
   
-  update: (id: string, data: Partial<Building>) => apiClient.put<Building>(`/admin/buildings/${id}`, data),
+  update: (id: string, data: Partial<Building>) => apiClient.put<{ success: boolean; data: Building }>(`/admin/buildings/${id}`, data)
+    .then(res => res.data),
   
-  delete: (id: string) => apiClient.delete(`/admin/buildings/${id}`),
+  delete: (id: string) => apiClient.delete<{ success: boolean }>(`/admin/buildings/${id}`),
 };

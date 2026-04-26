@@ -86,3 +86,127 @@
     @apply font-sans;
   }
 }
+
+/* ─── FullCalendar overrides ─────────────────────────────────────────────── */
+
+/* Toolbar */
+.fc .fc-toolbar {
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.25rem 0;
+}
+.fc .fc-toolbar-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--foreground);
+}
+
+/* Buttons */
+.fc .fc-button {
+  border-radius: 0.5rem !important;
+  font-size: 0.75rem !important;
+  font-weight: 500 !important;
+  padding: 0.3rem 0.65rem !important;
+  background-color: transparent !important;
+  color: var(--muted-foreground) !important;
+  border: 1px solid var(--border) !important;
+  box-shadow: none !important;
+  transition: background-color 0.15s, color 0.15s !important;
+}
+.fc .fc-button:hover {
+  background-color: var(--muted) !important;
+  color: var(--foreground) !important;
+}
+.fc .fc-button:focus {
+  outline: 2px solid var(--ring) !important;
+  outline-offset: 2px !important;
+}
+.fc .fc-button-primary:not(:disabled).fc-button-active,
+.fc .fc-button-primary:not(:disabled):active {
+  background-color: var(--primary) !important;
+  color: var(--primary-foreground) !important;
+  border-color: var(--primary) !important;
+}
+
+/* Now indicator (red line) */
+.fc .fc-timegrid-now-indicator-line {
+  border-color: var(--destructive) !important;
+  border-width: 2px !important;
+}
+.fc .fc-timegrid-now-indicator-arrow {
+  border-top-color: var(--destructive) !important;
+  border-bottom-color: var(--destructive) !important;
+}
+
+/* Events */
+.fc .fc-event {
+  border-radius: 8px !important;
+  cursor: pointer;
+  transition: opacity 0.15s, transform 0.1s;
+  border-width: 1px !important;
+}
+.fc .fc-event:hover {
+  opacity: 0.88;
+  transform: translateY(-1px);
+}
+.fc .fc-event-main {
+  padding: 0 !important;
+}
+
+/* Column headers */
+.fc .fc-col-header-cell {
+  font-weight: 600;
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.5rem 0;
+  border-color: var(--border) !important;
+}
+
+/* Grid lines */
+.fc td,
+.fc th {
+  border-color: var(--border) !important;
+}
+.fc .fc-scrollgrid {
+  border-radius: 0.75rem;
+  overflow: hidden;
+  border-color: var(--border) !important;
+}
+
+/* Slot labels */
+.fc .fc-timegrid-slot-label {
+  font-size: 0.7rem;
+  color: var(--muted-foreground);
+  opacity: 0.7;
+}
+
+/* List view */
+.fc .fc-list-event:hover td {
+  background-color: var(--secondary) !important;
+  cursor: pointer;
+}
+.fc .fc-list-event-title {
+  font-size: 0.85rem;
+}
+.fc .fc-list-day-cushion {
+  background-color: var(--secondary) !important;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--muted-foreground);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* Day grid */
+.fc .fc-daygrid-event {
+  border-radius: 6px !important;
+  font-size: 0.72rem;
+}
+
+/* More link */
+.fc .fc-more-link {
+  font-size: 0.7rem;
+  color: var(--primary);
+}

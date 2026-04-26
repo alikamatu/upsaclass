@@ -1,4 +1,7 @@
 import mongoose from "mongoose";
+import "./User";
+import "./TimetableSlot";
+import "./LectureHall";
 
 const ReassignmentRequestSchema = new mongoose.Schema(
   {
@@ -19,6 +22,10 @@ const ReassignmentRequestSchema = new mongoose.Schema(
     reason: {
       type: String,
       required: true,
+    },
+    requestedDate: {
+      type: String, // YYYY-MM-DD
+      default: null,
     },
     status: {
       type: String,

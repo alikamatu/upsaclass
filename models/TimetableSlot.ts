@@ -1,4 +1,7 @@
 import mongoose from "mongoose";
+import "./Course";
+import "./Lecturer";
+import "./LectureHall";
 
 const TimetableSlotSchema = new mongoose.Schema(
   {
@@ -33,6 +36,10 @@ const TimetableSlotSchema = new mongoose.Schema(
     semester: {
       type: String,
       required: true,
+    },
+    classGroup: {
+      type: String,
+      default: "",
     },
   },
   { timestamps: true }

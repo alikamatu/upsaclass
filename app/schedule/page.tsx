@@ -3,26 +3,16 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import dynamic from "next/dynamic";
 import { motion, AnimatePresence } from "framer-motion";
-import { useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
-import { useTheme } from "next-themes";
 import {
   Search,
   X,
   SlidersHorizontal,
   Calendar,
   RotateCcw,
-  LogIn,
-  LayoutDashboard,
-  AlertCircle,
-  Sun,
-  Moon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { NotificationDropdown } from "@/components/ui/NotificationDropdown";
-import { NotificationBar } from "@/components/ui/NotificationBar";
 import {
   Select,
   SelectContent,
@@ -42,12 +32,13 @@ import {
 } from "@/lib/timetableUtils";
 import type { EventClickArg } from "@fullcalendar/core";
 
+// Dynamically import FullCalendar to keep bundle lean
 const CalendarWrapper = dynamic(
   () => import("@/components/schedule/CalendarWrapper"),
   { ssr: false, loading: () => <CalendarSkeleton /> }
 );
 
-// ─── Skeleton ─────────────────────────────────────────────────────────────────
+// ─── Skeleton ────────────────────────────────────────────────────────────────
 
 function CalendarSkeleton() {
   return (
@@ -79,7 +70,7 @@ function FilterSelect({
 }) {
   return (
     <Select value={value || "__all__"} onValueChange={onChange}>
-      <SelectTrigger className="h-8 rounded-lg text-xs min-w-[120px] border-border bg-muted/50 hover:bg-background transition-colors">
+      <SelectTrigger className="h-8 rounded-lg text-xs min-w-[120px] border-slate-200 bg-slate-50 hover:bg-white transition-colors">
         <SelectValue placeholder={placeholder} />
       </SelectTrigger>
       <SelectContent className="rounded-xl">
@@ -104,10 +95,10 @@ function EmptyState() {
       transition={{ duration: 0.3 }}
       className="flex flex-col items-center justify-center py-24 text-center px-6"
     >
-      <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center mb-4 shadow-inner">
-        <Calendar className="size-8 text-muted-foreground/60" />
+      <div className="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center mb-4 shadow-inner">
+        <Calendar className="size-8 text-slate-400" />
       </div>
-      <h3 className="font-semibold text-foreground mb-1">No lectures found</h3>
+      <h3 className="font-semibold text-slate-700 mb-1">No lectures found</h3>
       <p className="text-sm text-muted-foreground max-w-xs">
         Try adjusting your search or filters to find what you&apos;re looking
         for.
@@ -116,88 +107,45 @@ function EmptyState() {
   );
 }
 
-// ─── Error State ──────────────────────────────────────────────────────────────
-
-function ErrorState({ message, detail }: { message: string; detail?: string }) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.96 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{ duration: 0.3 }}
-      className="flex flex-col items-center justify-center py-20 text-center px-6"
-    >
-      <div className="w-14 h-14 rounded-2xl bg-destructive/10 flex items-center justify-center mb-4">
-        <AlertCircle className="size-7 text-destructive" />
-      </div>
-      <h3 className="font-semibold text-foreground mb-1">{message}</h3>
-      {detail && (
-        <p className="text-xs text-muted-foreground font-mono bg-muted/30 border border-border rounded-lg px-3 py-2 mt-2 max-w-sm break-all">
-          {detail}
-        </p>
-      )}
-      <Button
-        variant="outline"
-        size="sm"
-        className="mt-4"
-        onClick={() => window.location.reload()}
-      >
-        Reload page
-      </Button>
-    </motion.div>
-  );
-}
-
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
-export default function HomePage() {
-  const { data: session, status } = useSession();
-  const router = useRouter();
-  const { theme, setTheme } = useTheme();
-
+export default function SchedulePage() {
   const [allEvents, setAllEvents] = useState<TimetableEvent[]>([]);
   const [buildings, setBuildings] = useState<string[]>([]);
   const [lecturers, setLecturers] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<{ message: string; detail?: string } | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
 
-  const [selectedEvent, setSelectedEvent] = useState<TimetableEvent | null>(null);
+  const [selectedEvent, setSelectedEvent] = useState<TimetableEvent | null>(
+    null
+  );
   const [modalOpen, setModalOpen] = useState(false);
 
   const searchTimer = useRef<NodeJS.Timeout | null>(null);
-  const [mounted, setMounted] = useState(false);
+
+  // ── Fetch ────────────────────────────────────────────────────────────────
 
   useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  // ── Fetch ─────────────────────────────────────────────────────────────────
-  useEffect(() => {
-    if (!mounted) return;
     fetch("/api/timetable/events")
-      .then(async (r) => {
-        const data = await r.json();
-        if (!r.ok) {
-          // Surface the real error from the API response body
-          throw { message: data.error ?? `HTTP ${r.status}`, detail: data.detail };
-        }
-        return data;
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
       })
       .then((data) => {
         setAllEvents(data.events ?? []);
         setBuildings(data.buildings ?? []);
         setLecturers(data.lecturers ?? []);
       })
-      .catch((e: any) =>
-        setError({ message: e.message ?? String(e), detail: e.detail })
-      )
+      .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
-  }, [mounted]);
+  }, []);
 
-  // ── Debounce search ───────────────────────────────────────────────────────
+  // ── Debounce search ──────────────────────────────────────────────────────
+
   useEffect(() => {
     if (searchTimer.current) {
       clearTimeout(searchTimer.current);
@@ -211,6 +159,7 @@ export default function HomePage() {
   }, [search]);
 
   // ── Derived ───────────────────────────────────────────────────────────────
+
   const filteredEvents = filterEvents(allEvents, debouncedSearch, filters);
   const calendarEvents = toFullCalendarEvents(filteredEvents);
 
@@ -219,6 +168,7 @@ export default function HomePage() {
   ).filter(([k, v]) => v && v !== "all" && !(k === "timeOfDay" && v === "all"));
 
   // ── Handlers ──────────────────────────────────────────────────────────────
+
   const setFilter = (key: keyof FilterState, value: string) =>
     setFilters((f) => ({ ...f, [key]: value }));
 
@@ -246,26 +196,16 @@ export default function HomePage() {
     setFilter(key, clear ? (key === "timeOfDay" ? "all" : "") : val);
   };
 
-  const handleDashboard = () => {
-    const role = (session?.user as any)?.role;
-    if (role === "admin") router.push("/admin");
-    else if (role === "rep") router.push("/rep");
-    else router.push("/student");
-  };
-
   // ── Render ────────────────────────────────────────────────────────────────
-  return (
-    <div 
-      className="min-h-screen bg-slate-50 dark:bg-slate-950/20 bg-gradient-to-br from-background via-primary/5 to-background"
-      suppressHydrationWarning
-    >
 
-      {/* Header */}
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/20 to-white">
+      {/* ── Header ──────────────────────────────────────────────────────── */}
       <motion.header
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
-        className="sticky top-0 z-30 bg-background/80 backdrop-blur-md border-b border-border/50 shadow-sm"
+        className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-slate-100 shadow-sm"
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-4">
           <div className="flex items-center gap-2.5">
@@ -281,61 +221,26 @@ export default function HomePage() {
               </p>
             </div>
           </div>
-
-          <div className="flex flex-wrap items-center gap-2 justify-end">
-            {status === "authenticated" && (
-              <NotificationDropdown />
-            )}
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-              className="relative rounded-full"
-              aria-label="Toggle theme"
-            >
-              {mounted ? (
-                <>
-                  <Sun className={`h-4 w-4 transition-all ${theme === "dark" ? "opacity-0 scale-75" : "opacity-100 scale-100"}`} />
-                  <Moon className={`absolute inset-0 h-4 w-4 transition-all ${theme === "dark" ? "opacity-100 scale-100" : "opacity-0 scale-75"}`} />
-                </>
-              ) : (
-                <div className="h-4 w-4" /> // or a default icon
-              )}
-            </Button>
-            <ExportButton events={filteredEvents} />
-            {status === "authenticated" ? (
-              <Button size="sm" onClick={handleDashboard} className="gap-1.5 rounded-lg">
-                <LayoutDashboard className="size-3.5" />
-                Dashboard
-              </Button>
-            ) : (
-              <Button size="sm" variant="outline" onClick={() => router.push("/login")} className="gap-1.5 rounded-lg">
-                <LogIn className="size-3.5" />
-                Sign in
-              </Button>
-            )}
-          </div>
+          <ExportButton events={filteredEvents} />
         </div>
       </motion.header>
 
-      {status === "authenticated" && <NotificationBar />}
-
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-4">
-
-        {/* Search + Filters */}
+        {/* ── Search + Filters ─────────────────────────────────────────── */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, delay: 0.08 }}
-          className="bg-card rounded-2xl border border-border/50 shadow-sm p-4 space-y-3"
+          className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 space-y-3"
         >
+          {/* Search input */}
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
             <Input
               placeholder="Search by course code, lecturer, hall, building…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-9 h-10 rounded-xl bg-muted/50 border-border focus-visible:bg-background transition-colors"
+              className="pl-9 h-10 rounded-xl bg-slate-50 border-slate-200 focus-visible:bg-white transition-colors"
             />
             <AnimatePresence>
               {search && (
@@ -352,8 +257,10 @@ export default function HomePage() {
             </AnimatePresence>
           </div>
 
+          {/* Filters row */}
           <div className="flex flex-wrap gap-2 items-center">
             <SlidersHorizontal className="size-3.5 text-muted-foreground shrink-0" />
+
             <FilterSelect
               placeholder="Building"
               value={filters.building}
@@ -395,6 +302,7 @@ export default function HomePage() {
                 value: d,
               }))}
             />
+
             <AnimatePresence>
               {(activeFilters.length > 0 || search) && (
                 <motion.div
@@ -416,6 +324,7 @@ export default function HomePage() {
             </AnimatePresence>
           </div>
 
+          {/* Active filter badges */}
           <AnimatePresence>
             {activeFilters.length > 0 && (
               <motion.div
@@ -446,33 +355,35 @@ export default function HomePage() {
           </AnimatePresence>
         </motion.div>
 
-        {/* Results count */}
+        {/* ── Results info row ─────────────────────────────────────────── */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.18 }}
-          className="px-1"
+          className="flex items-center justify-between px-1"
         >
           <p className="text-xs text-muted-foreground">
             {loading
               ? "Loading lectures…"
               : error
-              ? `Error: ${error.message}`
+              ? `Error: ${error}`
               : `${filteredEvents.length} lecture${filteredEvents.length !== 1 ? "s" : ""} found`}
           </p>
         </motion.div>
 
-        {/* Calendar card */}
+        {/* ── Calendar card ────────────────────────────────────────────── */}
         <motion.div
           initial={{ opacity: 0, y: 14 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, delay: 0.12 }}
-          className="bg-card rounded-2xl border border-border/50 shadow-sm overflow-hidden"
+          className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden"
         >
           {loading ? (
             <CalendarSkeleton />
           ) : error ? (
-            <ErrorState message={error.message} detail={error.detail} />
+            <div className="py-20 text-center text-sm text-destructive">
+              Failed to load schedule. Please try refreshing.
+            </div>
           ) : filteredEvents.length === 0 ? (
             <EmptyState />
           ) : (
@@ -486,6 +397,7 @@ export default function HomePage() {
         </motion.div>
       </main>
 
+      {/* ── Event detail modal ────────────────────────────────────────── */}
       <EventModal
         event={selectedEvent}
         open={modalOpen}

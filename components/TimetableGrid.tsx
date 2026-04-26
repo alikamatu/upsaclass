@@ -17,6 +17,7 @@ type ScheduleItem = {
   startTime: string;
   endTime: string;
   hallCode: string;
+  classGroup: string;
   isRescheduled: boolean;
 };
 
@@ -73,6 +74,11 @@ export function TimetableGrid() {
                       {item.isRescheduled && (
                         <Badge variant="secondary" className="bg-amber-50 text-amber-600 border-amber-100 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800 rounded-full font-medium">
                           Rescheduled
+                        </Badge>
+                      )}
+                      {item.classGroup && (
+                        <Badge variant="outline" className="border-indigo-100 bg-indigo-50 text-indigo-600 text-[10px] font-bold">
+                          {item.classGroup}
                         </Badge>
                       )}
                     </div>

@@ -29,7 +29,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<Params
     }
 
     const body = await req.json();
-    const { course, lecturer, day, startTime, endTime, defaultHall, semester } = body;
+    const { course, lecturer, day, startTime, endTime, defaultHall, semester, classGroup } = body;
 
     await dbConnect();
 
@@ -81,6 +81,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<Params
     if (endTime) slot.endTime = endTime;
     if (defaultHall) slot.defaultHall = defaultHall;
     if (semester) slot.semester = semester;
+    if (classGroup !== undefined) slot.classGroup = classGroup;
 
     await slot.save();
 

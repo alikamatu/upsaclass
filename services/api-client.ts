@@ -15,12 +15,11 @@ class ApiClient {
 
     if (!response.ok) {
       const error = json || { message: "An unexpected error occurred" };
-      toast.error(error.message || "Request failed");
-      throw new Error(error.message || "Request failed");
-    }
-
-    if (json && typeof json === "object" && "data" in json) {
-      return (json as any).data as T;
+      const message = typeof error === "string"
+        ? error
+        : error?.message || error?.error || JSON.stringify(error) || "Request failed";
+      toast.error(message);
+      throw new Error(message);
     }
 
     return json as T;

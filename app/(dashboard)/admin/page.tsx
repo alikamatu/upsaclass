@@ -11,12 +11,13 @@ import { CourseManagement } from "@/components/admin/CourseManagement";
 import { TimetableManagement } from "@/components/admin/TimetableManagement";
 import { BuildingManagement } from "@/components/admin/BuildingManagement";
 import { LecturerManagement } from "@/components/admin/LecturerManagement";
+import { RepManagement } from "@/components/admin/RepManagement";
 import { requestService } from "@/services/requestService";
 import { hallService } from "@/services/hallService";
 import { ReassignmentRequest, LectureHall } from "@/types";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
-import { Clock, CheckCircle2, XCircle, AlertCircle, MapPin, Loader2 } from "lucide-react";
+import { Clock, CheckCircle2, AlertCircle, MapPin, Loader2 } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -26,15 +27,18 @@ export default function AdminDashboard() {
   const [requests, setRequests] = useState<ReassignmentRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [halls, setHalls] = useState<LectureHall[]>([]);
-  
+
   // Approval state
   const [isApproveDialogOpen, setIsApproveDialogOpen] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState<ReassignmentRequest | null>(null);
   const [selectedHall, setSelectedHall] = useState<string>("");
   const [adminNotes, setAdminNotes] = useState("");
+  const [isOneTime, setIsOneTime] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
-  const pendingRequests = requests.filter(r => r.status === "PENDING");
+  const pendingRequests = requests.filter(
+    (r) => String(r.status).toLowerCase() === "pending"
+  );
 
   useEffect(() => {
     fetchRequests();
@@ -75,7 +79,7 @@ export default function AdminDashboard() {
 
     setSubmitting(true);
     try {
-      await requestService.approve(selectedRequest._id, selectedHall, adminNotes);
+      await requestService.approve(selectedRequest._id, selectedHall, adminNotes, isOneTime, selectedRequest.requestedDate);
       toast.success("Request approved and hall reassigned");
       setIsApproveDialogOpen(false);
       resetApprovalForm();
@@ -137,8 +141,11 @@ export default function AdminDashboard() {
           <TabsTrigger value="courses" className="rounded-xl px-6 py-2.5 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800 data-[state=active]:text-blue-600 data-[state=active]:shadow-sm transition-all font-semibold">
             Courses
           </TabsTrigger>
-          <TabsTrigger value="timetable" className="rounded-xl px-6 py-2.5 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800 data-[state=active]:text-blue-600 data-[state=active]:shadow-sm transition-all font-semibold">
+          <TabsTrigger value="timetable" className="rounded-xl px-6 py-2.5 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800 data-[state=active]:text-blue-600 data-[state=active]:shadow-sm transition-all font-semibold text-sm">
             Timetable
+          </TabsTrigger>
+          <TabsTrigger value="reps" className="rounded-xl px-6 py-2.5 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800 data-[state=active]:text-blue-600 data-[state=active]:shadow-sm transition-all font-semibold text-sm">
+            Course Reps
           </TabsTrigger>
         </TabsList>
 
@@ -168,42 +175,112 @@ export default function AdminDashboard() {
                 </div>
               ) : (
                 <StaggerList className="divide-y divide-slate-50 dark:divide-slate-800">
-                  {requests.map((request) => (
+                  {pendingRequests.map((request) => (
                     <StaggerItem key={request._id}>
                       <div className="p-6 hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors flex flex-col lg:flex-row justify-between lg:items-center gap-6 group">
-                        <div className="space-y-3 flex-1">
-                          <div className="flex items-center gap-3">
+                        <div className="space-y-4 flex-1">
+                          {/* Course Header */}
+                          <div className="flex items-center gap-3 flex-wrap">
                             <Badge variant="outline" className="rounded-full bg-blue-50 text-blue-600 border-blue-100 font-bold px-3">
-                              {(request.courseId as any)?.code || "COURSE"}
+                              {(request.slot as any)?.course?.courseCode || "COURSE"}
                             </Badge>
                             <span className="text-slate-900 dark:text-slate-100 font-bold text-lg">
-                              {(request.courseId as any)?.title || "Course Title"}
+                              {(request.slot as any)?.course?.courseName || "Course Title"}
                             </span>
+                            {(request.slot as any)?.course?.enrollmentCount && (
+                              <Badge variant="secondary" className="bg-slate-100 text-slate-700 text-xs">
+                                {(request.slot as any).course.enrollmentCount} students
+                              </Badge>
+                            )}
                           </div>
-                          
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm font-medium">
+
+                          {/* Main Info Grid */}
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm font-medium">
+                            {/* Lecturer */}
+                            {(request.slot as any)?.lecturer?.fullName && (
+                              <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
+                                <span className="text-slate-500">Lecturer:</span>
+                                <span className="text-slate-800 dark:text-slate-200">{(request.slot as any).lecturer.fullName}</span>
+                              </div>
+                            )}
+
+                            {/* Time & Day */}
+                            <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
+                              <Clock className="h-4 w-4 text-blue-500" />
+                              <span className="text-slate-500">Time:</span>
+                              <span className="text-slate-800 dark:text-slate-200">
+                                {(request.slot as any)?.day} {(request.slot as any)?.startTime}-{(request.slot as any)?.endTime}
+                              </span>
+                            </div>
+
+                            {/* Current Hall */}
                             <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
                               <MapPin className="h-4 w-4 text-slate-400" />
                               <span className="text-slate-500">Current:</span>
-                              <span className="text-slate-800 dark:text-slate-200">{(request.currentHallId as any)?.name || "Pending"}</span>
+                              <span className="text-slate-800 dark:text-slate-200">
+                                {(request.slot as any)?.defaultHall?.hallCode || "TBA"}
+                              </span>
                             </div>
-                            <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
-                              <AlertCircle className="h-4 w-4 text-amber-500" />
-                              <span className="text-slate-500">Reason:</span>
-                              <span className="text-slate-800 dark:text-slate-200 line-clamp-1 italic">"{request.reason}"</span>
+                          </div>
+
+                          {/* Secondary Info - Reason and Requested By */}
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                            {/* Reason */}
+                            <div className="flex gap-2">
+                              <AlertCircle className="h-4 w-4 text-amber-500 flex-shrink-0 mt-0.5" />
+                              <div>
+                                <span className="text-slate-500 block mb-1">Reason:</span>
+                                <span className="text-slate-800 dark:text-slate-200 italic font-medium">"{request.reason}"</span>
+                              </div>
                             </div>
+
+                            {/* Requested By */}
+                            {(request.requestedBy as any)?.fullName && (
+                              <div>
+                                <span className="text-slate-500 text-xs block mb-1">Requested by:</span>
+                                <span className="text-slate-800 dark:text-slate-200 font-medium">{(request.requestedBy as any).fullName}</span>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Additional Details Row */}
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs font-medium pt-2">
+                            {/* Requested Date */}
+                            {request.requestedDate && (
+                              <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
+                                <span className="text-slate-500">Requested Date:</span>
+                                <span className="text-slate-800 dark:text-slate-200">{request.requestedDate}</span>
+                              </div>
+                            )}
+
+                            {/* Preferred Hall */}
+                            {(request.preferredHall as any)?.name && (
+                              <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
+                                <span className="text-slate-500">Preferred:</span>
+                                <span className="text-slate-800 dark:text-slate-200">{(request.preferredHall as any).name}</span>
+                              </div>
+                            )}
+
+                            {/* Current Hall Capacity */}
+                            {(request.slot as any)?.defaultHall?.capacity && (
+                              <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
+                                <span className="text-slate-500">Capacity:</span>
+                                <span className="text-slate-800 dark:text-slate-200">{(request.slot as any).defaultHall.capacity} seats</span>
+                              </div>
+                            )}
                           </div>
                         </div>
 
+                        {/* Actions */}
                         <div className="flex items-center gap-3 self-end lg:self-center">
-                          <AnimatedButton 
-                            variant="ghost" 
+                          <AnimatedButton
+                            variant="ghost"
                             onClick={() => handleRejectSubmit(request)}
                             className="text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 font-bold h-11 px-6 rounded-xl border border-transparent hover:border-red-100 dark:hover:border-red-900/50"
                           >
                             Reject
                           </AnimatedButton>
-                          <AnimatedButton 
+                          <AnimatedButton
                             onClick={() => handleApproveClick(request)}
                             className="bg-blue-600 hover:bg-blue-700 text-white font-bold h-11 px-8 rounded-xl shadow-md shadow-blue-500/20"
                           >
@@ -238,7 +315,11 @@ export default function AdminDashboard() {
         <TabsContent value="timetable" className="mt-0 outline-none">
           <TimetableManagement />
         </TabsContent>
-      </Tabs>
+        
+                 <TabsContent value="reps" className="mt-0 outline-none">
+                     <RepManagement />
+                   </TabsContent>
+               </Tabs>
 
       {/* Approve Dialog */}
       <Dialog open={isApproveDialogOpen} onOpenChange={setIsApproveDialogOpen}>
@@ -248,7 +329,7 @@ export default function AdminDashboard() {
             <DialogHeader className="mb-6">
               <DialogTitle className="text-2xl font-bold">Confirm Reassignment</DialogTitle>
               <DialogDescription className="font-medium text-slate-500">
-                Allocate a new lecture hall for <span className="text-blue-600 font-bold">{(selectedRequest?.courseId as any)?.code}</span>.
+                Allocate a new lecture hall for <span className="text-blue-600 font-bold">{(selectedRequest?.slot as any)?.course?.courseCode}</span> ({(selectedRequest?.slot as any)?.day} {(selectedRequest?.slot as any)?.startTime}-{(selectedRequest?.slot as any)?.endTime}).
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-6">
@@ -269,12 +350,25 @@ export default function AdminDashboard() {
               </div>
               <div className="space-y-2">
                 <Label className="text-xs uppercase tracking-wider font-bold text-slate-500">Admin Response</Label>
-                <Textarea 
+                <Textarea
                   placeholder="e.g. Approved. Nelson Mandela LT is reserved for your session."
-                  className="rounded-xl min-h-[100px] bg-slate-50 dark:bg-slate-800 border-none resize-none"
+                  className="rounded-xl min-h-[80px] bg-slate-50 dark:bg-slate-800 border-none resize-none"
                   value={adminNotes}
                   onChange={(e) => setAdminNotes(e.target.value)}
                 />
+              </div>
+
+              <div className="flex items-center space-x-2 bg-slate-50 dark:bg-slate-800 p-4 rounded-xl">
+                <input
+                  type="checkbox"
+                  id="one-time"
+                  className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-600"
+                  checked={isOneTime}
+                  onChange={(e) => setIsOneTime(e.target.checked)}
+                />
+                <Label htmlFor="one-time" className="text-sm font-semibold text-slate-700 dark:text-slate-300 cursor-pointer">
+                  One-time assignment (for {selectedRequest?.requestedDate || 'selected date'})
+                </Label>
               </div>
             </div>
             <DialogFooter className="mt-8">

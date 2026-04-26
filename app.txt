@@ -1,312 +1,275 @@
-RESEARCH DOCUMENT: DESIGN AND IMPLEMENTATION OF A WEB-BASED CLASSROOM ALLOCATION AND RESCHEDULING SYSTEM
-1. INTRODUCTION
-1.1 Background
-Tertiary institutions in Ghana, such as the University of Professional Studies, Accra (UPSA), typically operate with fixed timetables for lecture hall allocation each semester. While this approach works under normal circumstances, it fails dynamically when disruptions occur – faulty equipment, double allocations, or last-minute venue changes. Currently, course representatives and lecturers manually search for available halls, leading to wasted time, missed lectures, frustration, and disorganized rescheduling.
+Context
+You have access to the upsaclass project in the GitHub folder (Next.js + MongoDB + Tailwind + shadcn/ui + Framer Motion + FullCalendar). The system already has:
 
-1.2 Problem Statement
-Most tertiary institutions rely on fixed timetables. When lecture halls become unavailable due to faulty learning equipment, double allocation, or unforeseen issues, no centralized system exists to:
+Public homepage with FullCalendar (lecture schedule, search, filters)
 
-Quickly find an available hall
+Admin dashboard for buildings, halls, lecturers, courses, timetable slots
 
-Request a reassignment
+Authentication with roles: student, rep, admin
 
-Notify affected students
+Now implement admin management of course reps and the complete rep request & approval workflow.
 
-Track changes over time
+PART 1: Admin – Manage Course Representatives
+1.1 Add a Course Rep
+Admin navigates to a new section: "Course Representatives" (tab in admin dashboard).
 
-This results in inefficiency and academic disruption.
+Form to add a rep:
 
-2. PROJECT OBJECTIVES
-2.1 General Objective
-To design and implement a web-based classroom allocation and rescheduling system that improves access to lecture hall information and minimizes disruptions caused by classroom unavailability.
+Field	Type	Notes
+Student ID	Text	Required, becomes username for login
+Full Name	Text	Required
+Course	Dropdown	List of all courses – the rep will represent this course
+Temporary Password	Text	Admin sets a password (will be hashed before saving)
+On submit:
 
-2.2 Specific Objectives
-#	Objective
-1	Design a centralized database for managing classrooms, courses, and lecture schedules.
-2	Develop a web-based platform that displays allocated lecture halls for courses.
-3	Enable students to search and view their assigned lecture halls and updated class locations.
-4	Implement role-based access control (RBAC) for students, course representatives, and administrators.
-5	Allow authorized users (course reps) to request classroom reassignment during disruptions.
-6	Enable students to view their personalized class timetables.
-3. PROJECT SCOPE
-3.1 In-Scope Features
-Web-based access via browser (responsive design)
+Create a new User with:
 
-Student course search and lecture hall viewing
+studentId = entered ID
 
-Viewing of rescheduled or updated classroom information
+passwordHash = bcrypt hash of the password
 
-Classroom availability checking (real-time)
+fullName = entered name
 
-Classroom reassignment request functionality (by course reps)
+role = "rep"
 
-Administrator approval and management dashboard
+courseRepFor = selected course's ObjectId
 
-Personalized class schedule access per student
+enrolledCourses = optionally auto-enroll the rep in that course? (Up to you, but rep should at least see that course's schedule)
 
-In-app notifications (bell icon, unread badges)
+Show success toast.
 
-3.2 Out of Scope
-Mobile application (progressive web app may be added later)
+1.2 View All Reps
+Table showing: Student ID, Full Name, Course Represented, Created At
 
-Classroom equipment status tracking (e.g., broken projector flag)
+Actions: Change Password, Delete
 
-SMS or email notifications (only in-app)
+1.3 Change Rep Password
+Button opens a dialog with:
 
-Full university-wide timetable automation (manual entry of master schedule)
+New password field (with confirmation)
 
-Automated maintenance of halls
+On submit: hash and update passwordHash in DB.
 
-Integration with existing institutional or academic management systems (e.g., legacy ERP)
+Show toast on success.
 
-4. SYSTEM FEATURES (BY USER ROLE)
-4.1 Student
-Secure login with student ID and password
+1.4 Delete Rep
+Confirmation dialog (shadcn AlertDialog).
 
-View personalized weekly timetable (course, time, hall, lecturer)
+On confirm: delete the user document from users collection.
 
-Search for any course to see its current hall and schedule
+Show toast, refresh table.
 
-Receive in-app notifications when a hall changes for their enrolled courses
+PART 2: Course Representative – Login & Dashboard
+2.1 Login
+Rep uses Student ID and password set by admin.
 
-View status of requests (if they are also a rep – see below)
+On successful login, session stores role: "rep" and courseRepFor.
 
-4.2 Course Representative (a Student with elevated privileges)
-All student features
+2.2 Rep Dashboard (after login)
+Redirect to /rep/dashboard (or enhance student dashboard with rep-specific UI).
 
-Submit a classroom reassignment request for a specific course session
+Dashboard shows:
 
-Provide reason for request (e.g., double allocation, broken AC/projector)
+Welcome message with rep's name.
 
-Suggest a preferred alternative hall (system checks availability)
+Courses I Represent card/list: displays the course(s) they are rep for (one rep per course in this design, but could be multiple). Each course shows:
 
-Track request status: pending → approved/rejected
+Course code & name
 
-4.3 Administrator
-Full CRUD operations: lecture halls, courses, timetable slots
+Next upcoming lecture (day, time, current hall)
 
-View all current allocations (master + overridden)
+Button: "Request Reassignment"
 
-Approve or reject reassignment requests
+My Requests section/link to view all requests (status: pending/approved/rejected).
 
-When approving, select an available hall (system prevents conflicts)
+(Optional) Their personal timetable (if also enrolled in other courses).
 
-Publish changes → instantly updates student views + triggers notifications
+PART 3: Request Reassignment – Full Flow (as you described)
+3.1 Rep Clicks "Request Reassignment"
+Opens a Dialog (shadcn/ui Dialog) with form.
 
-View system audit logs (who requested what, when, resolved by whom)
+3.2 Form Fields (with dynamic logic)
+Field	Type	Behavior
+Course	Dropdown	Pre-selected with the course they represent (or allows selection if multiple).
+Date	Date picker	Only shows future dates when the course has a scheduled session. On date change, refresh available halls.
+Start Time	Display only	Shows the scheduled start time for that course on that date.
+Current Hall	Display only	Shows the currently allocated hall (could be default or an override).
+Preferred Hall	Dropdown	Populated with available halls at that date/time – halls that are not double-booked and have capacity ≥ course enrollment.
+Reason	Textarea	Required. Examples: "Double allocation", "Projector broken", "AC not working".
+Submit	Button	Sends POST to /api/requests.
+3.3 Submit Request
+Request stored in reassignmentrequests collection with:
 
-5. SYSTEM ARCHITECTURE & TECHNOLOGY STACK
-Layer	Technology	Purpose
-Frontend	Next.js 14 (App Router)	React framework with server components & routing
-Styling	Tailwind CSS + Framer Motion	Utility-first CSS + smooth animations
-Backend	Next.js API Routes (Node.js)	Serverless functions for business logic
-Database	MongoDB (with Mongoose ODM)	NoSQL, flexible schema for timetable data
-Authentication	NextAuth.js (Credentials provider)	Session-based auth with role embedding
-Hosting	Vercel / Local server	Easy deployment for Next.js apps
-5.1 Why Next.js + MongoDB?
-Next.js provides both frontend and API routes in one project, simplifying deployment.
+requestedBy: rep's user ID
 
-MongoDB handles semi-structured data like timetable slots, allocations, and requests without rigid joins.
+slot: the timetable slot ID for that specific course session (based on date + day + time – you'll need to map date to a recurring slot)
 
-Tailwind + Framer Motion allows rapid UI development with smooth page transitions and feedback animations.
+preferredHall: selected hall ID
 
-6. SYSTEM FLOW (DATA & PROCESS)
-6.1 High-Level Flow Diagram (Textual)
-text
-[User logs in] → Role-based redirect
-    ├─ Student → Dashboard (timetable + search)
-    ├─ Course Rep → Same as student + "Request Reassignment" button
-    └─ Admin → Admin dashboard (manage halls/courses, approve requests)
+reason: text
 
-[Student searches course] → API → MongoDB → returns current hall (master or overridden)
+status: "pending"
 
-[Course rep submits request] → API → stores pending request in DB → admin sees badge
+createdAt: now
 
-[Admin approves] → checks hall availability → updates Allocation collection → creates notifications for enrolled students → student sees real-time change
+After submit: close dialog, show success toast, redirect to "My Requests" page.
 
-[In-app notification] → bell icon → list of unread messages → marks as read
-6.2 Detailed Process: Reassignment Request & Approval
+3.4 "My Requests" Page
+List of all requests made by this rep.
 
+Each request shows:
 
+Course name
 
+Date and time of session
 
+Preferred hall
 
+Status badge (pending = yellow, approved = green, rejected = red)
 
+Admin comment (if rejected)
 
+If pending: a Cancel button (DELETE /api/requests/{id}).
 
+Use Framer Motion staggered list animation.
 
+PART 4: Admin – Approve/Reject Request (with Hall Selection)
+4.1 Admin Dashboard – Pending Requests Tab
+List of all pending requests (cards or table).
 
+Each request shows:
 
+Rep name & student ID
 
+Course name
 
+Original hall (from timetable slot)
 
+Preferred hall
 
+Reason
 
-6.3 Data Flow: Student Viewing Timetable
-text
-Student logs in → GET /api/timetable → MongoDB:
-    - Find user's enrolled courses
-    - For each course, get TimetableSlot
-    - Check Allocation for overrides (isActive = true)
-    - Return combined schedule with hall & reschedule flag
-→ Frontend renders timetable grid
-7. DATABASE DESIGN (MongoDB Collections)
-7.1 Collection: users
-json
-{
-  "_id": ObjectId,
-  "studentId": "2024CS001",
-  "passwordHash": "$2b$10$...",
-  "fullName": "Kofi Mensah",
-  "role": "student" | "rep" | "admin",
-  "courseRepFor": ObjectId("course_id"),   // if role="rep"
-  "enrolledCourses": [ObjectId, ...]
-}
-7.2 Collection: lecturehalls
-json
-{
-  "_id": ObjectId,
-  "hallCode": "LT001",
-  "name": "Nelson Mandela Lecture Theatre",
-  "capacity": 120,
-  "building": "Faculty Block A",
-  "features": ["projector", "ac", "whiteboard"]
-}
-7.3 Collection: courses
-json
-{
-  "_id": ObjectId,
-  "courseCode": "CSC301",
-  "courseName": "Web Development",
-  "department": "Computer Science",
-  "creditHours": 3,
-  "enrollmentCount": 85
-}
-7.4 Collection: timetableslots
-json
-{
-  "_id": ObjectId,
-  "course": ObjectId("course_id"),
-  "lecturerName": "Dr. Adjei",
-  "day": "Mon",
-  "startTime": "10:00",
-  "endTime": "12:00",
-  "defaultHall": ObjectId("hall_id"),
-  "semester": "2025-1"
-}
-7.5 Collection: allocations (overrides)
-json
-{
-  "_id": ObjectId,
-  "slot": ObjectId("timetableslot_id"),
-  "hall": ObjectId("hall_id"),
-  "isActive": true,
-  "effectiveFrom": "2025-04-10T00:00:00Z",
-  "effectiveUntil": null
-}
-7.6 Collection: reassignmentrequests
+Date/time of session
+
+4.2 Approval Flow (as you described)
+Admin clicks "Approve" on a request.
+
+Opens a dialog:
+
+Shows the requested session details.
+
+Dropdown: "Select new hall" – populated with available halls at that date/time (excluding the original hall if it's free? Actually show all free halls).
+
+Admin chooses a hall (could be the preferred one or another).
+
+Optional: Admin comment.
+
+On confirm:
+
+Create a new Allocation record:
+
+slot: the timetable slot ID
+
+hall: selected hall ID
+
+isActive: true
+
+effectiveFrom: the date of the session (or immediate for recurring? For a single session, set effectiveFrom = session date, effectiveUntil = next day or null for permanent override? – decide based on your design: one‑time override or permanent until changed. I recommend one‑time override for a specific date.)
+
+Update the request: status = "approved", approvedNewHall = selected hall, resolvedAt = now.
+
+Generate notifications for all students enrolled in that course: Notification collection, each with user = student ID, message = "Your {courseCode} lecture on {date} at {time} has been moved to {hallName}.", isRead = false.
+
+Show success toast.
+
+4.3 Rejection Flow
+Admin clicks "Reject", enters a comment.
+
+Update request: status = "rejected", adminComment = comment.
+
+Notify only the rep (create a notification for the rep).
+
+PART 5: Student & Homepage Updates – Show Rescheduled Badge
+5.1 Student Dashboard
+When fetching timetable for a student, for each timetable slot, check if there is an active allocation for that specific date (if using date‑specific overrides) or for the current week.
+
+If an override exists, display the new hall and show a badge: "Rescheduled" (or a 🔄 icon).
+
+In the timetable grid, style the cell with a subtle red/orange border or a tooltip.
+
+5.2 Homepage FullCalendar
+The public calendar (homepage) should also reflect active allocations.
+
+When building events for the calendar, for each recurring timetable slot, check if there is an allocation override for that specific date.
+
+If yes, use the override hall in the event title/description and add a class fc-event-rescheduled to style differently (e.g., dashed border, red dot).
+
+Event tooltip/popup should show: "Original hall: LT001 → Rescheduled to LT003".
+
+PART 6: API Endpoints Summary
+Method	Endpoint	Description	Access
+POST	/api/admin/reps	Create a new rep (with student ID, name, course, password)	Admin
+GET	/api/admin/reps	List all reps	Admin
+PUT	/api/admin/reps/{id}/password	Change rep's password	Admin
+DELETE	/api/admin/reps/{id}	Delete a rep	Admin
+GET	/api/requests/my	Get logged-in rep's requests	Rep
+POST	/api/requests	Submit a reassignment request	Rep
+DELETE	/api/requests/{id}	Cancel pending request	Rep
+GET	/api/halls/available?day=Mon&date=2025-04-15&time=10:00&courseId=...	Returns available halls (excluding conflicting, capacity sufficient)	Rep, Admin
+PUT	/api/admin/requests/{id}/approve	Approve request (admin selects hall)	Admin
+PUT	/api/admin/requests/{id}/reject	Reject request	Admin
+GET	/api/timetable/events?date=2025-04-15	Returns events for a specific date (with override resolution)	Public
+PART 7: Database Schema Additions (if not already present)
+reassignmentrequests collection
 json
 {
   "_id": ObjectId,
   "requestedBy": ObjectId("user_id"),
   "slot": ObjectId("timetableslot_id"),
   "preferredHall": ObjectId("hall_id"),
-  "reason": "Double allocation with CSC205",
-  "status": "pending",
-  "adminComment": null,
-  "approvedNewHall": null,
-  "createdAt": ISODate("2025-04-07T10:30:00Z")
+  "reason": "string",
+  "status": "pending|approved|rejected",
+  "adminComment": "string",
+  "approvedNewHall": ObjectId("hall_id"),
+  "createdAt": Date,
+  "resolvedAt": Date
 }
-7.7 Collection: notifications
+allocations collection (for overrides)
+json
+{
+  "_id": ObjectId,
+  "slot": ObjectId("timetableslot_id"),
+  "hall": ObjectId("hall_id"),
+  "isActive": true,
+  "effectiveFrom": Date,   // specific date for one‑time override
+  "effectiveUntil": Date | null
+}
+notifications collection
 json
 {
   "_id": ObjectId,
   "user": ObjectId("user_id"),
-  "message": "CSC301 has been moved to LT005 for Mon 10:00-12:00",
+  "message": "string",
   "isRead": false,
   "relatedRequest": ObjectId("request_id"),
-  "createdAt": ISODate("2025-04-07T11:00:00Z")
+  "createdAt": Date
 }
-8. API ENDPOINTS (Next.js API Routes)
-Method	Endpoint	Description	Access
-POST	/api/auth/...	NextAuth.js routes	All
-GET	/api/timetable	Get student's personalized timetable	Student, Rep
-GET	/api/search?q=...	Search course and return current hall	Student, Rep
-GET	/api/halls/available?day=Mon&time=10:00	List free halls at given time	Rep, Admin
-POST	/api/requests	Submit reassignment request	Rep
-GET	/api/requests	Get user's requests (or all for admin)	All auth
-PUT	/api/requests/[id]/approve	Admin approves request	Admin
-PUT	/api/requests/[id]/reject	Admin rejects request	Admin
-GET	/api/notifications	Get unread notifications	All auth
-PUT	/api/notifications/[id]/read	Mark as read	All auth
-CRUD	/api/admin/halls	Manage lecture halls	Admin
-CRUD	/api/admin/courses	Manage courses	Admin
-CRUD	/api/admin/timetable	Manage master timetable	Admin
-9. USER INTERFACE DESIGN (with Tailwind + Framer Motion)
-9.1 Student Dashboard
-Top bar: Welcome message, logout button, notification bell with badge.
+PART 8: Acceptance Criteria
+Admin can create a rep (student ID + password), change password, delete rep.
 
-Main area: Weekly timetable grid (Mon–Fri, 8am–6pm). Each cell shows course code and hall. If hall changed, a small red "Rescheduled" tag appears.
+Rep logs in with student ID + password and sees dashboard with "Courses I Represent".
 
-Right sidebar: Search input (live search results), link to "My Requests".
+Rep can request reassignment for a future lecture, with available halls dynamically filtered.
 
-Animations: Page fade-in on load, table rows hover scale effect, notification bell shake on new alert.
+Rep sees request status in "My Requests" and can cancel pending requests.
 
-9.2 Course Rep Request Form
-Animated slide-in modal or separate page.
+Admin sees pending requests with badge, can approve (choose any free hall) or reject.
 
-Dropdowns animated with spring physics.
+On approval, an allocation override is created and notifications are sent to all enrolled students.
 
-Real-time hall availability checker (spinner while fetching).
+Student dashboard and homepage calendar show the updated hall with a "Rescheduled" badge/indicator.
 
-Submit button with loading state.
+All UI elements use shadcn/ui components, Tailwind CSS, and Framer Motion animations.
 
-9.3 Admin Dashboard
-Tabs (Halls, Courses, Timetable, Pending Requests, Logs).
-
-Pending requests appear as cards with motion (stagger children).
-
-Approve button opens a modal listing available halls (with checkmark animation).
-
-Success toast notification using Framer Motion pop-in.
-
-9.4 Sample Tailwind Classes Used
-bg-gradient-to-r from-blue-600 to-purple-600 (headings)
-
-rounded-xl shadow-md hover:shadow-lg transition-all
-
-flex items-center justify-between
-
-grid md:grid-cols-3 gap-6 (responsive layout)
-
-10. SECURITY & ROLE-BASED ACCESS
-Authentication: NextAuth.js stores session in HTTP-only cookie. Passwords hashed with bcrypt.
-
-Authorization: Middleware checks token.role before allowing access to /admin/*, /rep/*.
-
-API protection: Each API route validates session and role before processing.
-
-Input validation: Mongoose schemas enforce data types; API routes sanitize strings.
-
-MongoDB injection: Avoided by using Mongoose parameterization.
-
-11. DEVELOPMENT PLAN (PHASES)
-Phase	Duration	Deliverables
-1 – Setup & Auth	2 days	Next.js project, MongoDB connection, NextAuth with login/register
-2 – Core Models & API	3 days	Mongoose models for all collections, basic CRUD APIs
-3 – Student Dashboard	3 days	Timetable grid, search bar, notification bell
-4 – Rep Request Flow	3 days	Request form, hall availability API, request listing
-5 – Admin Approval	3 days	Admin dashboard, approval/rejection logic, allocation override
-6 – Notifications	2 days	Real-time (polling or Server-Sent Events) notifications
-7 – Testing & Polish	2 days	Manual testing, edge cases, animation polish
-12. CONCLUSION
-This research has produced a complete specification for a web-based classroom allocation and rescheduling system using Next.js, MongoDB, Tailwind CSS, and Framer Motion. The system addresses the real-world problem of manual hall searching by providing role-based dashboards, real-time availability checking, request approval workflows, and in-app notifications. The technical choices ensure a modern, responsive, and animated user experience while keeping development straightforward with a unified JavaScript/TypeScript stack.
-
-Next immediate action: Set up the Next.js project, install dependencies, and create the MongoDB connection utility. Then implement the user authentication layer.
-
-Document prepared for: DESIGN AND IMPLEMENTATION OF A WEB-BASED CLASSROOM ALLOCATION AND RESCHEDULING SYSTEM
-Date: April 2026
-Technology stack: Next.js 14, MongoDB, Tailwind CSS, Framer Motion
-
-Would you like me to also generate the initial project code skeleton (folder structure with empty files) or the MongoDB seed script with sample data for Ghanaian university context?
+Mobile responsive.
 

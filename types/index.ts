@@ -5,7 +5,7 @@ export interface User {
   studentId: string;
   fullName: string;
   role: UserRole;
-  courseRepFor?: string | null;
+  courseRepFor?: string[] | any;
   enrolledCourses: string[];
   createdAt: string;
   updatedAt: string;
@@ -53,12 +53,14 @@ export type RequestStatus = "PENDING" | "APPROVED" | "REJECTED";
 export interface ReassignmentRequest {
   _id: string;
   courseId: string | any;
-  requestedBy: string | any;
-  currentHallId: string | any;
-  preferredHallId?: string | any;
+  requestedBy: string | User | any;
+  slot: string | TimetableSlot | any;
+  preferredHall?: string | LectureHall | any;
   reason: string;
-  status: RequestStatus;
-  adminNotes?: string;
+  requestedDate?: string | null;
+  status: string; // PENDING, APPROVED, REJECTED
+  adminComment?: string;
+  approvedNewHall?: string | LectureHall | any;
   createdAt: string;
   updatedAt: string;
 }
@@ -72,22 +74,27 @@ export interface TimetableSlot {
   endTime: string; // HH:mm
   defaultHall: string | LectureHall | any;
   semester: string;
+  classGroup?: string;
 }
 
 export interface Allocation {
   _id: string;
-  slotId: string | any;
-  hallId: string | any;
-  date?: string; // For one-off reassignments
-  isTemporary: boolean;
+  slot: string | TimetableSlot | any;
+  hall: string | LectureHall | any;
+  isActive: boolean;
+  effectiveFrom: string;
+  effectiveUntil?: string | null;
+  isOneTime?: boolean;
+  specificDate?: string | null;
 }
 
 export interface Notification {
   _id: string;
-  userId: string;
+  user: string;
   title: string;
   message: string;
-  type: "info" | "success" | "warning" | "error";
+  type: string;
   isRead: boolean;
+  relatedRequest?: string;
   createdAt: string;
 }

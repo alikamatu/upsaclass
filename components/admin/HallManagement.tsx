@@ -286,7 +286,11 @@ export function HallManagement() {
                     <div className="space-y-3 mt-4">
                       <div className="flex items-center text-sm text-slate-500 dark:text-slate-400 gap-2 font-medium">
                         <MapPin className="h-4 w-4 text-blue-500" />
-                        <span className="line-clamp-1">{(hall as any).building || hall.location}</span>
+                        <span className="line-clamp-1">
+                          {typeof hall.building === 'string' 
+                            ? hall.building 
+                            : hall.building?.name || 'No building assigned'}
+                        </span>
                       </div>
                       <div className="flex items-center text-sm text-slate-500 dark:text-slate-400 gap-2 font-medium">
                         <Users className="h-4 w-4 text-emerald-500" />

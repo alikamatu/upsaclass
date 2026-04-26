@@ -1,4 +1,6 @@
 import mongoose from "mongoose";
+import "./TimetableSlot";
+import "./LectureHall";
 
 const AllocationSchema = new mongoose.Schema(
   {
@@ -22,6 +24,14 @@ const AllocationSchema = new mongoose.Schema(
     },
     effectiveUntil: {
       type: Date,
+      default: null,
+    },
+    isOneTime: {
+      type: Boolean,
+      default: false,
+    },
+    specificDate: {
+      type: String, // YYYY-MM-DD
       default: null,
     },
   },

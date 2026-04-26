@@ -41,12 +41,13 @@ import { SearchFilters } from "@/components/shared/SearchFilters";
 interface FormData {
   course: string;
   lecturer: string;
-  day: string;
+  day: "Mon" | "Tue" | "Wed" | "Thu" | "Fri" | "Sat" | "Sun";
   startTime: string;
   endTime: string;
   building: string;
   defaultHall: string;
   semester: string;
+  classGroup?: string;
 }
 
 const initialFormData: FormData = {
@@ -58,6 +59,7 @@ const initialFormData: FormData = {
   building: "",
   defaultHall: "",
   semester: "2025-1",
+  classGroup: "",
 };
 
 export function TimetableManagement() {
@@ -138,6 +140,7 @@ export function TimetableManagement() {
       building: buildingId || "none",
       defaultHall: typeof slot.defaultHall === "object" ? (slot.defaultHall as LectureHall)?._id : slot.defaultHall,
       semester: slot.semester,
+      classGroup: slot.classGroup || "",
     });
     setEditingId(slot._id);
     setIsEditDialogOpen(true);
@@ -255,7 +258,6 @@ export function TimetableManagement() {
           { label: "Start Time", field: "startTime", direction: "asc" },
         ], [])}
         onFilterChange={setFilteredSlots}
-        flattenFields={true}
       />
 
       {/* Grid Content */}
@@ -337,6 +339,11 @@ export function TimetableManagement() {
                         <Badge variant="secondary" className="bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 text-[10px]">
                           Sem {slot.semester}
                         </Badge>
+                        {slot.classGroup && (
+                          <Badge variant="outline" className="border-indigo-100 bg-indigo-50 text-indigo-600 text-[10px] font-bold">
+                            {slot.classGroup}
+                          </Badge>
+                        )}
                       </div>
 
                       <h4 className="text-slate-900 dark:text-slate-100 font-bold text-lg mb-4 line-clamp-2 leading-tight flex-1">
@@ -446,6 +453,18 @@ export function TimetableManagement() {
                 />
               </div>
 
+              <div className="col-span-2 space-y-2">
+                <Label htmlFor="classGroup" className="text-slate-700 dark:text-slate-300 font-semibold text-xs uppercase tracking-wider">Class Group / Section</Label>
+                <Input
+                  id="classGroup"
+                  name="classGroup"
+                  placeholder="e.g. Group A, Level 100, etc."
+                  className="rounded-xl bg-slate-50 border-none focus:bg-white transition-all h-11"
+                  value={formData.classGroup}
+                  onChange={handleInputChange}
+                />
+              </div>
+
               <div className="col-span-1 space-y-2">
                 <Label htmlFor="startTime" className="text-slate-700 dark:text-slate-300 font-semibold text-xs uppercase tracking-wider">Start Time</Label>
                 <Input
@@ -503,7 +522,8 @@ export function TimetableManagement() {
                       })
                       .map((h) => (
                         <SelectItem key={h._id} value={h._id} className="rounded-lg">
-                          {h.name} {h.isAvailable ? "" : "(Unavailable)"}
+                          {h.hallCode ? `${h.hallCode} · ${h.name}` : h.name}
+                          {h.isAvailable === false ? " (Unavailable)" : ""}
                         </SelectItem>
                       ))}
                     {halls.filter(h => {

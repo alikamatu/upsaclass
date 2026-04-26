@@ -23,11 +23,17 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    const enrolledCourseIds = user.enrolledCourses;
+    const enrolledCourseIds = user.enrolledCourses || [];
+    const managedCourseIds = user.courseRepFor || [];
+    
+    const allRelevantCourseIds = Array.from(new Set([
+      ...enrolledCourseIds.map((id: any) => id.toString()),
+      ...managedCourseIds.map((id: any) => id.toString())
+    ]));
 
-    // Fetch timetable slots for enrolled courses
-    const slots = await TimetableSlot.find({ course: { $in: enrolledCourseIds } })
+    const slots = await TimetableSlot.find({ course: { $in: allRelevantCourseIds } })
       .populate({ path: "course", select: "courseCode courseName" })
+      .populate({ path: "lecturer", select: "fullName" })
       .populate({ path: "defaultHall", select: "hallCode name" })
       .lean();
 
@@ -45,15 +51,22 @@ export async function GET(req: Request) {
     // Combine slots with potential overrides
     const combinedSchedule = slots.map((slot: any) => {
       const override = overrideMap[slot._id.toString()];
+      const hall = override ? override.hall : slot.defaultHall;
+      const buildingValue = hall?.building;
+      const building = typeof buildingValue === "object"
+        ? buildingValue?.name ?? String(buildingValue)
+        : String(buildingValue ?? "");
       return {
         _id: slot._id,
         courseCode: slot.course?.courseCode,
         courseName: slot.course?.courseName,
-        lecturerName: slot.lecturerName,
+        lecturerName: slot.lecturer?.fullName || "TBA",
         day: slot.day,
         startTime: slot.startTime,
         endTime: slot.endTime,
-        hallCode: override ? override.hall?.hallCode : slot.defaultHall?.hallCode,
+        hallCode: hall?.hallCode,
+        building,
+        classGroup: slot.classGroup || "",
         isRescheduled: !!override,
       };
     });

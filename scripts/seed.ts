@@ -81,9 +81,9 @@ async function seed() {
   // 4. Users
   const passwordHash = await bcrypt.hash("password123", 10);
   await User.insertMany([
-    { studentId: "ADMIN001", passwordHash, fullName: "System Admin", role: "admin", enrolledCourses: [] },
-    { studentId: "2024CS001", passwordHash, fullName: "Kofi Mensah", role: "student", enrolledCourses: [courses[0]._id, courses[1]._id] },
-    { studentId: "2024CSREP", passwordHash, fullName: "Ama Serwaa", role: "rep", courseRepFor: courses[0]._id, enrolledCourses: [courses[0]._id, courses[1]._id] },
+    { studentId: "ADMIN001", passwordHash, fullName: "System Admin", role: "admin", email: "admin@upsamail.edu.gh", emailVerified: true, enrolledCourses: [] },
+    { studentId: "2024CS001", passwordHash, fullName: "Kofi Mensah", role: "student", email: "kofi.mensah@upsamail.edu.gh", emailVerified: true, enrolledCourses: [courses[0]._id, courses[1]._id] },
+    { studentId: "2024CSREP", passwordHash, fullName: "Ama Serwaa", role: "rep", email: "ama.serwaa@upsamail.edu.gh", emailVerified: true, courseRepFor: courses[0]._id, enrolledCourses: [courses[0]._id, courses[1]._id] },
   ]);
 
   console.log("Seeding complete!");

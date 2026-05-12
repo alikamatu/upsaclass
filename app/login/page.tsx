@@ -3,13 +3,14 @@
 import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { PageTransition } from "@/components/ui/PageTransition";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { AnimatedButton } from "@/components/ui/AnimatedButton";
 import { toast } from "sonner";
-import { Loader2, ShieldCheck, GraduationCap } from "lucide-react";
+import { Loader2, ShieldCheck, GraduationCap, Lock } from "lucide-react";
 import { motion } from "framer-motion";
 
 export default function LoginPage() {
@@ -28,6 +29,13 @@ export default function LoginPage() {
         studentId,
         password,
       });
+
+      if (res?.error?.startsWith("EMAIL_NOT_VERIFIED:")) {
+        const sid = res.error.split(":")[1];
+        toast.info("Please verify your email first.");
+        router.push(`/verify-email?studentId=${sid}`);
+        return;
+      }
 
       if (res?.error) {
         toast.error(res.error);
@@ -96,7 +104,13 @@ export default function LoginPage() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="password" dangerouslySetInnerHTML={{ __html: 'Security Key <span class="text-[10px] lowercase normal-case text-slate-400 font-normal">(Case sensitive)</span>' }} className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 ml-1" />
+                  <div className="flex justify-between items-center ml-1">
+                    <Label htmlFor="password" dangerouslySetInnerHTML={{ __html: 'Security Key <span class="text-[10px] lowercase normal-case text-slate-400 font-normal">(Case sensitive)</span>' }} className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400" />
+                    <Link href="/forgot-password" className="text-xs text-blue-600 font-semibold hover:underline flex items-center gap-1">
+                      <Lock className="w-3 h-3" />
+                      Forgot password?
+                    </Link>
+                  </div>
                   <Input
                     id="password"
                     type="password"
@@ -124,9 +138,16 @@ export default function LoginPage() {
             </form>
           </Card>
 
-          <p className="mt-8 text-center text-sm text-slate-500 dark:text-slate-400">
-            For technical support, contact the <span className="text-blue-600 font-semibold cursor-pointer">UPSA IT Helpdesk</span>
-          </p>
+          <div className="mt-6 text-center space-y-2">
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              New student?{" "}
+              <Link href="/register" className="text-blue-600 font-semibold hover:underline">Create account</Link>
+            </p>
+            <p className="text-xs text-slate-400 dark:text-slate-500">
+              For technical support, contact the{" "}
+              <span className="text-blue-600 font-semibold cursor-pointer">UPSA IT Helpdesk</span>
+            </p>
+          </div>
         </motion.div>
       </div>
 

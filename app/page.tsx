@@ -1,496 +1,166 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
-import dynamic from "next/dynamic";
-import { motion, AnimatePresence } from "framer-motion";
-import { useSession } from "next-auth/react";
+import { useState } from "react";
+import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { useTheme } from "next-themes";
-import {
-  Search,
-  X,
-  SlidersHorizontal,
-  Calendar,
-  RotateCcw,
-  LogIn,
-  LayoutDashboard,
-  AlertCircle,
-  Sun,
-  Moon,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
+import Link from "next/link";
+import { PageTransition } from "@/components/ui/PageTransition";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { NotificationDropdown } from "@/components/ui/NotificationDropdown";
-import { NotificationBar } from "@/components/ui/NotificationBar";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Skeleton } from "@/components/ui/skeleton";
-import { EventModal } from "@/components/schedule/EventModal";
-import { ExportButton } from "@/components/schedule/ExportButton";
-import {
-  TimetableEvent,
-  FilterState,
-  DEFAULT_FILTERS,
-  filterEvents,
-  toFullCalendarEvents,
-} from "@/lib/timetableUtils";
-import type { EventClickArg } from "@fullcalendar/core";
+import { AnimatedButton } from "@/components/ui/AnimatedButton";
+import { toast } from "sonner";
+import { Loader2, ShieldCheck, GraduationCap, Lock } from "lucide-react";
+import { motion } from "framer-motion";
 
-const CalendarWrapper = dynamic(
-  () => import("@/components/schedule/CalendarWrapper"),
-  { ssr: false, loading: () => <CalendarSkeleton /> }
-);
-
-// ─── Skeleton ─────────────────────────────────────────────────────────────────
-
-function CalendarSkeleton() {
-  return (
-    <div className="space-y-3 p-4 sm:p-6">
-      <Skeleton className="h-10 w-full rounded-xl" />
-      {Array.from({ length: 7 }).map((_, i) => (
-        <Skeleton
-          key={i}
-          className="w-full rounded-xl"
-          style={{ height: i === 0 ? 40 : 64, animationDelay: `${i * 60}ms` }}
-        />
-      ))}
-    </div>
-  );
-}
-
-// ─── Filter Select ────────────────────────────────────────────────────────────
-
-function FilterSelect({
-  placeholder,
-  value,
-  onChange,
-  options,
-}: {
-  placeholder: string;
-  value: string;
-  onChange: (v: string) => void;
-  options: { label: string; value: string }[];
-}) {
-  return (
-    <Select value={value || "__all__"} onValueChange={onChange}>
-      <SelectTrigger className="h-8 rounded-lg text-xs min-w-[120px] border-border bg-muted/50 hover:bg-background transition-colors">
-        <SelectValue placeholder={placeholder} />
-      </SelectTrigger>
-      <SelectContent className="rounded-xl">
-        <SelectItem value="__all__">All {placeholder}s</SelectItem>
-        {options.map((o) => (
-          <SelectItem key={o.value} value={o.value}>
-            {o.label}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
-  );
-}
-
-// ─── Empty State ──────────────────────────────────────────────────────────────
-
-function EmptyState() {
-  return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.96 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{ duration: 0.3 }}
-      className="flex flex-col items-center justify-center py-24 text-center px-6"
-    >
-      <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center mb-4 shadow-inner">
-        <Calendar className="size-8 text-muted-foreground/60" />
-      </div>
-      <h3 className="font-semibold text-foreground mb-1">No lectures found</h3>
-      <p className="text-sm text-muted-foreground max-w-xs">
-        Try adjusting your search or filters to find what you&apos;re looking
-        for.
-      </p>
-    </motion.div>
-  );
-}
-
-// ─── Error State ──────────────────────────────────────────────────────────────
-
-function ErrorState({ message, detail }: { message: string; detail?: string }) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.96 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{ duration: 0.3 }}
-      className="flex flex-col items-center justify-center py-20 text-center px-6"
-    >
-      <div className="w-14 h-14 rounded-2xl bg-destructive/10 flex items-center justify-center mb-4">
-        <AlertCircle className="size-7 text-destructive" />
-      </div>
-      <h3 className="font-semibold text-foreground mb-1">{message}</h3>
-      {detail && (
-        <p className="text-xs text-muted-foreground font-mono bg-muted/30 border border-border rounded-lg px-3 py-2 mt-2 max-w-sm break-all">
-          {detail}
-        </p>
-      )}
-      <Button
-        variant="outline"
-        size="sm"
-        className="mt-4"
-        onClick={() => window.location.reload()}
-      >
-        Reload page
-      </Button>
-    </motion.div>
-  );
-}
-
-// ─── Main Page ────────────────────────────────────────────────────────────────
-
-export default function HomePage() {
-  const { data: session, status } = useSession();
+export default function LoginPage() {
   const router = useRouter();
-  const { theme, setTheme } = useTheme();
+  const [studentId, setStudentId] = useState("");
+  const [password, setPassword] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
-  const [allEvents, setAllEvents] = useState<TimetableEvent[]>([]);
-  const [buildings, setBuildings] = useState<string[]>([]);
-  const [lecturers, setLecturers] = useState<string[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<{ message: string; detail?: string } | null>(null);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
 
-  const [search, setSearch] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
+    try {
+      const res = await signIn("credentials", {
+        redirect: false,
+        studentId,
+        password,
+      });
 
-  const [selectedEvent, setSelectedEvent] = useState<TimetableEvent | null>(null);
-  const [modalOpen, setModalOpen] = useState(false);
-
-  const searchTimer = useRef<NodeJS.Timeout | null>(null);
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  // ── Fetch ─────────────────────────────────────────────────────────────────
-  useEffect(() => {
-    if (!mounted) return;
-    fetch("/api/timetable/events")
-      .then(async (r) => {
-        const data = await r.json();
-        if (!r.ok) {
-          // Surface the real error from the API response body
-          throw { message: data.error ?? `HTTP ${r.status}`, detail: data.detail };
-        }
-        return data;
-      })
-      .then((data) => {
-        setAllEvents(data.events ?? []);
-        setBuildings(data.buildings ?? []);
-        setLecturers(data.lecturers ?? []);
-      })
-      .catch((e: any) =>
-        setError({ message: e.message ?? String(e), detail: e.detail })
-      )
-      .finally(() => setLoading(false));
-  }, [mounted]);
-
-  // ── Debounce search ───────────────────────────────────────────────────────
-  useEffect(() => {
-    if (searchTimer.current) {
-      clearTimeout(searchTimer.current);
-    }
-    searchTimer.current = setTimeout(() => setDebouncedSearch(search), 280);
-    return () => {
-      if (searchTimer.current) {
-        clearTimeout(searchTimer.current);
+      if (res?.error?.startsWith("EMAIL_NOT_VERIFIED:")) {
+        const sid = res.error.split(":")[1];
+        toast.info("Please verify your email first.");
+        router.push(`/verify-email?studentId=${sid}`);
+        return;
       }
-    };
-  }, [search]);
 
-  // ── Derived ───────────────────────────────────────────────────────────────
-  const filteredEvents = filterEvents(allEvents, debouncedSearch, filters);
-  const calendarEvents = toFullCalendarEvents(filteredEvents);
-
-  const activeFilters = (
-    Object.entries(filters) as [keyof FilterState, string][]
-  ).filter(([k, v]) => v && v !== "all" && !(k === "timeOfDay" && v === "all"));
-
-  // ── Handlers ──────────────────────────────────────────────────────────────
-  const setFilter = (key: keyof FilterState, value: string) =>
-    setFilters((f) => ({ ...f, [key]: value }));
-
-  const clearFilter = (key: keyof FilterState) =>
-    setFilters((f) => ({
-      ...f,
-      [key]: key === "timeOfDay" ? "all" : "",
-    }));
-
-  const resetAll = () => {
-    setFilters(DEFAULT_FILTERS);
-    setSearch("");
+      if (res?.error) {
+        toast.error(res.error);
+        setIsLoading(false);
+      } else {
+        toast.success("Welcome back!");
+        window.location.href = "/home";
+      }
+    } catch (error) {
+      toast.error("An unexpected error occurred");
+      setIsLoading(false);
+    }
   };
 
-  const handleEventClick = useCallback((info: EventClickArg) => {
-    setSelectedEvent(info.event.extendedProps as TimetableEvent);
-    setModalOpen(true);
-  }, []);
-
-  const handleFilterChange = (key: keyof FilterState) => (val: string) => {
-    const clear =
-      val === "__all__" ||
-      (key === "timeOfDay" && val === "all") ||
-      val === "";
-    setFilter(key, clear ? (key === "timeOfDay" ? "all" : "") : val);
-  };
-
-  const handleDashboard = () => {
-    const role = (session?.user as any)?.role;
-    if (role === "admin") router.push("/admin");
-    else if (role === "rep") router.push("/rep");
-    else router.push("/student");
-  };
-
-  // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div 
-      className="min-h-screen bg-slate-50 dark:bg-slate-950/20 bg-gradient-to-br from-background via-primary/5 to-background"
-      suppressHydrationWarning
-    >
-
-      {/* Header */}
-      <motion.header
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
-        className="sticky top-0 z-30 bg-background/80 backdrop-blur-md border-b border-border/50 shadow-sm"
-      >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-primary flex items-center justify-center shadow-sm">
-              <Calendar className="size-4 text-white" />
-            </div>
-            <div>
-              <h1 className="text-sm font-semibold leading-none text-foreground">
-                Lecture Schedule
-              </h1>
-              <p className="text-[11px] text-muted-foreground mt-0.5">
-                UPSA Class Timetable
-              </p>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2 justify-end">
-            {status === "authenticated" && (
-              <NotificationDropdown />
-            )}
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-              className="relative rounded-full"
-              aria-label="Toggle theme"
-            >
-              {mounted ? (
-                <>
-                  <Sun className={`h-4 w-4 transition-all ${theme === "dark" ? "opacity-0 scale-75" : "opacity-100 scale-100"}`} />
-                  <Moon className={`absolute inset-0 h-4 w-4 transition-all ${theme === "dark" ? "opacity-100 scale-100" : "opacity-0 scale-75"}`} />
-                </>
-              ) : (
-                <div className="h-4 w-4" /> // or a default icon
-              )}
-            </Button>
-            <ExportButton events={filteredEvents} />
-            {status === "authenticated" ? (
-              <Button size="sm" onClick={handleDashboard} className="gap-1.5 rounded-lg">
-                <LayoutDashboard className="size-3.5" />
-                Dashboard
-              </Button>
-            ) : (
-              <Button size="sm" variant="outline" onClick={() => router.push("/login")} className="gap-1.5 rounded-lg">
-                <LogIn className="size-3.5" />
-                Sign in
-              </Button>
-            )}
-          </div>
+    <PageTransition>
+      <div className="min-h-screen relative overflow-hidden flex flex-col justify-center items-center p-4 bg-slate-50 dark:bg-slate-950">
+        {/* Background Decorative Elements */}
+        <div className="absolute top-0 left-0 w-full h-full overflow-hidden -z-10 pointer-events-none">
+          <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-500/10 rounded-full blur-3xl animate-pulse" />
+          <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-400/10 rounded-full blur-3xl animate-pulse delay-700" />
         </div>
-      </motion.header>
 
-      {status === "authenticated" && <NotificationBar />}
-
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-4">
-
-        {/* Search + Filters */}
         <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, delay: 0.08 }}
-          className="bg-card rounded-2xl border border-border/50 shadow-sm p-4 space-y-3"
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.5, ease: "easeOut" }}
+          className="w-full max-w-md"
         >
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
-            <Input
-              placeholder="Search by course code, lecturer, hall, building…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-9 h-10 rounded-xl bg-muted/50 border-border focus-visible:bg-background transition-colors"
-            />
-            <AnimatePresence>
-              {search && (
-                <motion.button
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.8 }}
-                  onClick={() => setSearch("")}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  <X className="size-4" />
-                </motion.button>
-              )}
-            </AnimatePresence>
-          </div>
-
-          <div className="flex flex-wrap gap-2 items-center">
-            <SlidersHorizontal className="size-3.5 text-muted-foreground shrink-0" />
-            <FilterSelect
-              placeholder="Building"
-              value={filters.building}
-              onChange={handleFilterChange("building")}
-              options={buildings.map((b) => ({ label: b, value: b }))}
-            />
-            <FilterSelect
-              placeholder="Lecturer"
-              value={filters.lecturer}
-              onChange={handleFilterChange("lecturer")}
-              options={lecturers.map((l) => ({ label: l, value: l }))}
-            />
-            <FilterSelect
-              placeholder="Capacity"
-              value={filters.capacity}
-              onChange={handleFilterChange("capacity")}
-              options={[
-                { label: "≥ 30 seats", value: "30" },
-                { label: "≥ 50 seats", value: "50" },
-                { label: "≥ 100 seats", value: "100" },
-              ]}
-            />
-            <FilterSelect
-              placeholder="Time"
-              value={filters.timeOfDay === "all" ? "" : filters.timeOfDay}
-              onChange={handleFilterChange("timeOfDay")}
-              options={[
-                { label: "Morning (before 12pm)", value: "morning" },
-                { label: "Afternoon (12–5pm)", value: "afternoon" },
-                { label: "Evening (after 5pm)", value: "evening" },
-              ]}
-            />
-            <FilterSelect
-              placeholder="Day"
-              value={filters.day}
-              onChange={handleFilterChange("day")}
-              options={["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => ({
-                label: d,
-                value: d,
-              }))}
-            />
-            <AnimatePresence>
-              {(activeFilters.length > 0 || search) && (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.9 }}
-                >
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={resetAll}
-                    className="gap-1.5 text-muted-foreground h-8 text-xs"
-                  >
-                    <RotateCcw className="size-3" />
-                    Reset all
-                  </Button>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-
-          <AnimatePresence>
-            {activeFilters.length > 0 && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: "auto" }}
-                exit={{ opacity: 0, height: 0 }}
-                className="flex flex-wrap gap-1.5 overflow-hidden"
-              >
-                {activeFilters.map(([key, val]) => (
-                  <motion.div
-                    key={key}
-                    initial={{ opacity: 0, scale: 0.85 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.85 }}
-                  >
-                    <Badge
-                      variant="secondary"
-                      className="gap-1 pr-1 cursor-pointer hover:bg-destructive/10 hover:text-destructive transition-colors text-xs"
-                      onClick={() => clearFilter(key)}
-                    >
-                      {val}
-                      <X className="size-2.5" />
-                    </Badge>
-                  </motion.div>
-                ))}
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </motion.div>
-
-        {/* Results count */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.18 }}
-          className="px-1"
-        >
-          <p className="text-xs text-muted-foreground">
-            {loading
-              ? "Loading lectures…"
-              : error
-              ? `Error: ${error.message}`
-              : `${filteredEvents.length} lecture${filteredEvents.length !== 1 ? "s" : ""} found`}
-          </p>
-        </motion.div>
-
-        {/* Calendar card */}
-        <motion.div
-          initial={{ opacity: 0, y: 14 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 0.12 }}
-          className="bg-card rounded-2xl border border-border/50 shadow-sm overflow-hidden"
-        >
-          {loading ? (
-            <CalendarSkeleton />
-          ) : error ? (
-            <ErrorState message={error.message} detail={error.detail} />
-          ) : filteredEvents.length === 0 ? (
-            <EmptyState />
-          ) : (
-            <div className="p-2 sm:p-4">
-              <CalendarWrapper
-                events={calendarEvents}
-                onEventClick={handleEventClick}
-              />
+          <div className="flex flex-col items-center mb-8">
+            <div className="h-16 w-16 bg-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/20 mb-4 transform -rotate-6">
+              <GraduationCap className="h-10 w-10 text-white" />
             </div>
-          )}
-        </motion.div>
-      </main>
+            <h1 className="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+              UPSA Class
+            </h1>
+            <p className="text-slate-500 dark:text-slate-400 font-medium">Classroom Allocation System</p>
+          </div>
 
-      <EventModal
-        event={selectedEvent}
-        open={modalOpen}
-        onClose={() => setModalOpen(false)}
-      />
-    </div>
+          <Card className="border-none shadow-2xl dark:shadow-slate-900/50 rounded-3xl overflow-hidden bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl">
+            <div className="h-1.5 bg-gradient-to-r from-blue-600 via-blue-400 to-blue-600 bg-[length:200%_auto] animate-gradient" />
+            <CardHeader className="space-y-1 pb-8 pt-8">
+              <CardTitle className="text-2xl font-bold text-center">
+                Portal Login
+              </CardTitle>
+              <CardDescription className="text-center font-medium">
+                Access your personalized academic schedule
+              </CardDescription>
+            </CardHeader>
+            <form onSubmit={handleSubmit}>
+              <CardContent className="space-y-6">
+                <div className="space-y-2">
+                  <Label htmlFor="studentId" className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 ml-1">
+                    Identification
+                  </Label>
+                  <div className="relative">
+                    <Input
+                      id="studentId"
+                      placeholder="Student ID or Index No."
+                      value={studentId}
+                      onChange={(e) => setStudentId(e.target.value)}
+                      className="rounded-xl h-12 bg-slate-50/50 dark:bg-slate-800/50 border-slate-100 dark:border-slate-800 focus:bg-white dark:focus:bg-slate-800 transition-all pl-10"
+                      required
+                    />
+                    <ShieldCheck className="absolute left-3.5 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center ml-1">
+                    <Label htmlFor="password" dangerouslySetInnerHTML={{ __html: 'Security Key <span class="text-[10px] lowercase normal-case text-slate-400 font-normal">(Case sensitive)</span>' }} className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400" />
+                    <Link href="/forgot-password" className="text-xs text-blue-600 font-semibold hover:underline flex items-center gap-1">
+                      <Lock className="w-3 h-3" />
+                      Forgot password?
+                    </Link>
+                  </div>
+                  <Input
+                    id="password"
+                    type="password"
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="rounded-xl h-12 bg-slate-50/50 dark:bg-slate-800/50 border-slate-100 dark:border-slate-800 focus:bg-white dark:focus:bg-slate-800 transition-all"
+                    required
+                  />
+                </div>
+              </CardContent>
+              <CardFooter className="pt-2 pb-8">
+                <AnimatedButton
+                  type="submit"
+                  className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-base shadow-lg shadow-blue-500/25 transition-all"
+                  disabled={isLoading}
+                >
+                  {isLoading ? (
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  ) : (
+                    "Authorize Session"
+                  )}
+                </AnimatedButton>
+              </CardFooter>
+            </form>
+          </Card>
+
+          <div className="mt-6 text-center space-y-2">
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              New student?{" "}
+              <Link href="/register" className="text-blue-600 font-semibold hover:underline">Create account</Link>
+            </p>
+            <p className="text-xs text-slate-400 dark:text-slate-500">
+              For technical support, contact the{" "}
+              <span className="text-blue-600 font-semibold cursor-pointer">UPSA IT Helpdesk</span>
+            </p>
+          </div>
+        </motion.div>
+      </div>
+
+      <style jsx global>{`
+        @keyframes gradient {
+          0% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+          100% { background-position: 0% 50%; }
+        }
+        .animate-gradient {
+          animation: gradient 3s ease infinite;
+        }
+      `}</style>
+    </PageTransition>
   );
 }

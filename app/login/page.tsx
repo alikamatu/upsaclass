@@ -42,7 +42,7 @@ export default function LoginPage() {
         setIsLoading(false);
       } else {
         toast.success("Welcome back!");
-        router.push("/");
+        window.location.href = "/";
       }
     } catch (error) {
       toast.error("An unexpected error occurred");
